@@ -1,0 +1,18 @@
+# Render deployment config (https://render.com).
+# Render reads this on connect; you only need to set the two secret env vars
+# in the dashboard (they are intentionally NOT stored in the repo).
+services:
+  - type: web
+    name: kanjisense
+    runtime: python
+    rootDir: kanjisense          # app.py, requirements.txt live here
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false              # set in Render dashboard (kept out of the repo)
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.12"

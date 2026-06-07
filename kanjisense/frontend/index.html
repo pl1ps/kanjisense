@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KanjiSense — AI-Powered Japanese Vocab</title>
+    <link rel="icon" type="image/png" href="../images/favicon.png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;700&display=swap"
+        rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body>
+    <!-- Login Gate (shown until the user signs in with Google) -->
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-card">
+            <img src="../images/KanjiSense-PNG.png" alt="KanjiSense logo" class="login-logo">
+            <h1 class="brand-title">KanjiSense</h1>
+            <p class="login-subtitle">Sign in to access your personal flashcards.</p>
+            <div id="google-signin-btn" class="google-signin-btn"></div>
+            <p id="login-error" class="login-error hidden"></p>
+        </div>
+    </div>
+
+    <div id="app" class="hidden">
+        <!-- Left Sidebar Section -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-row">
+                    <img src="../images/KanjiSense-PNG.png" alt="KanjiSense logo" class="brand-logo">
+                    <h1 class="brand-title">KanjiSense</h1>
+                </div>
+                <span class="brand-subtitle">Study Mode</span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button id="nav-review" class="nav-item active">
+                    <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    Dashboard
+                </button>
+                <button id="nav-due" class="nav-item">
+                    <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    Review Due Today
+                </button>
+                <button id="nav-stats" class="nav-item">
+                    <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22c4-2 7-6 7-11a7 7 0 0 0-14 0c0 5 3 9 7 11z"></path>
+                        <path d="M12 22V8"></path>
+                        <path d="M12 12l3-3M12 14l-3-3"></path>
+                    </svg>
+                    My Garden
+                </button>
+                <button id="nav-weak" class="nav-item">
+                    <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+                    </svg>
+                    Weak Cards
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="nav-scan" class="scan-create-btn">
+                    <svg class="scan-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
+                        </path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                    Scan & Create
+                </button>
+
+                <button id="nav-settings" class="nav-item">
+                    <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    Settings
+                </button>
+
+                <!-- Theme Toggle Switch -->
+                <div class="theme-toggle-item">
+                    <div class="theme-item-left">
+                        <svg class="theme-icon sun-icon hidden" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                        <svg class="theme-icon moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                        </svg>
+                        <span id="theme-text">Dark Mode</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="theme-toggle-checkbox" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <button id="nav-logout" class="nav-item">
+                    <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Right Main Content Area -->
+        <main class="main-content">
+            <!-- Review Section -->
+            <section id="section-review" class="view">
+                <!-- Deck Selection Dashboard -->
+                <div id="deck-selection-container" class="deck-selection-container">
+                    <!-- Personalized Welcome Banner -->
+                    <div class="welcome-banner">
+                        <h1 class="welcome-title" id="welcome-title">Welcome back</h1>
+                        <p class="welcome-subtitle">Focus on your next chapter. Precision comes through dedicated
+                            practice.</p>
+                    </div>
+
+                    <!-- Section Header with Filter -->
+                    <div class="section-header">
+                        <h2 class="section-title">Select a Chapter</h2>
+                        <button class="filter-btn" title="Filter chapters">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="4" y1="6" x2="20" y2="6"></line>
+                                <line x1="6" y1="12" x2="18" y2="12"></line>
+                                <line x1="9" y1="18" x2="15" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div id="decks-grid" class="decks-grid">
+                        <!-- Chapter Cards dynamically populated here -->
+                    </div>
+                </div>
+
+                <!-- Active Flashcard Reviewer -->
+                <div id="review-session-container" class="review-session-container hidden">
+                    <div class="review-header">
+                        <button id="btn-back-to-decks" class="back-btn">
+                            <span class="btn-icon">←</span> Back to Chapters
+                        </button>
+                        <h2 id="current-deck-title" class="deck-title">Chapter Name</h2>
+                    </div>
+
+                    <div class="stats-bar">
+                        <div class="stat">Cards Due: <span id="due-count">0</span></div>
+                        <div class="stat">Weak Cards: <span id="weak-count">0</span></div>
+                    </div>
+
+                    <div id="card-container">
+                        <div class="card" id="flashcard">
+                            <div class="card-inner">
+                                <div class="card-front">
+                                    <div class="kanji-display" id="display-kanji">漢</div>
+                                    <div class="instruction">Click to flip</div>
+                                </div>
+                                <div class="card-back">
+                                    <div class="reading" id="display-reading">かん</div>
+                                    <div class="meaning" id="display-meaning">Kanji</div>
+                                    <div class="example" id="display-example">これは漢字です。</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Swipe Stamp Indicators -->
+                        <div class="swipe-indicator forgot-indicator">Forgot</div>
+                        <div class="swipe-indicator remember-indicator">Remember</div>
+                    </div>
+
+                    <div class="review-controls hidden" id="controls">
+                        <p>Did you remember this card?</p>
+                        <div class="action-buttons">
+                            <button class="action-btn forgot-btn" id="btn-forgot">
+                                <span class="btn-icon">✖</span> Forgot (Left)
+                            </button>
+                            <button class="action-btn remember-btn" id="btn-remember">
+                                Remember (Right) <span class="btn-icon">✔</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Scan Section -->
+            <section id="section-scan" class="view hidden">
+                <div class="upload-area" id="drop-zone">
+                    <div id="drop-zone-content" class="drop-zone-content">
+                        <p>Drag & Drop an image of your textbook or</p>
+                        <button type="button" id="btn-choose-file">Choose File</button>
+                    </div>
+                    <input type="file" id="file-input" accept="image/*" hidden>
+                    <img id="image-preview" class="hidden" alt="Selected Preview">
+                </div>
+                <div id="scan-status" class="status-message"></div>
+                <div class="form-group">
+                    <label for="chapter-name">Chapter Name:</label>
+                    <input type="text" id="chapter-name" placeholder="e.g. Genki Chapter 1">
+                </div>
+                <button id="btn-scan-process" class="primary-btn">Process Image with AI</button>
+            </section>
+
+            <!-- My Garden Section -->
+            <section id="section-stats" class="view hidden">
+                <div class="welcome-banner">
+                    <h1 class="welcome-title">My Garden</h1>
+                    <p class="welcome-subtitle">Clear your reviews, water your tree, and watch it grow.</p>
+                </div>
+
+                <!-- Garden scene: sun (streak), a tree that grows with watering, watering can -->
+                <div class="garden-scene" id="garden-scene">
+                    <div class="garden-cloud garden-cloud-1"></div>
+                    <div class="garden-cloud garden-cloud-2"></div>
+
+                    <!-- Sun = study streak -->
+                    <div class="garden-sun-group">
+                        <div class="garden-sun"></div>
+                        <div class="garden-sun-caption">
+                            <span class="garden-sun-streak" id="sun-streak">0</span>
+                            <span class="garden-sun-label">days of sunshine</span>
+                        </div>
+                    </div>
+
+                    <!-- Tree = cumulative watering; flowers = mastery -->
+                    <div class="garden-plant">
+                        <div class="flower-layer" id="flower-layer"></div>
+                        <span class="plant-emoji" id="plant-emoji">🌱</span>
+                    </div>
+
+                    <!-- Watering can = today's action -->
+                    <button class="water-can-btn can-locked" id="water-can-btn" type="button" disabled>
+                        <span class="water-can-emoji">🪣</span>
+                        <span class="water-caption" id="water-caption">Loading…</span>
+                    </button>
+
+                    <div class="garden-ground"></div>
+                </div>
+
+                <!-- Slim growth line toward the next tree stage -->
+                <div class="garden-progress">
+                    <div class="garden-progress-head">
+                        <span class="garden-stage-name" id="garden-stage-name">Planting…</span>
+                        <span class="growth-caption" id="growth-caption">—</span>
+                    </div>
+                    <div class="growth-track"><div class="growth-fill" id="growth-fill"></div></div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section id="section-settings" class="view hidden">
+                <div class="welcome-banner">
+                    <h1 class="welcome-title">Settings</h1>
+                    <p class="welcome-subtitle">Personalize your name and daily review load.</p>
+                </div>
+
+                <div class="settings-card">
+                    <div class="settings-field">
+                        <label class="settings-label" for="settings-username">Display name</label>
+                        <p class="settings-hint">Shown on your dashboard and garden.</p>
+                        <input type="text" id="settings-username" class="settings-input" placeholder="Your name" maxlength="40">
+                    </div>
+
+                    <div class="settings-field">
+                        <label class="settings-label">Cards in “Review Due Today”</label>
+                        <p class="settings-hint">How many previously-seen cards to review per day.</p>
+                        <div class="segmented" id="due-limit-group" role="group" aria-label="Daily review amount">
+                            <button type="button" class="segment" data-value="low">Low<span>10 / day</span></button>
+                            <button type="button" class="segment" data-value="medium">Medium<span>20 / day</span></button>
+                            <button type="button" class="segment" data-value="high">High<span>40 / day</span></button>
+                        </div>
+                    </div>
+
+                    <div class="settings-actions">
+                        <span id="settings-status" class="settings-status"></span>
+                        <button id="settings-save" class="primary-btn" type="button">Save changes</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="review.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,25 @@
+# Secrets & local environment — NEVER commit these
+.env
+*.env
+!.env.example
+
+# Local database (contains user data)
+kanjisense.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+ENV/
+
+# Editor / OS / tooling
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db

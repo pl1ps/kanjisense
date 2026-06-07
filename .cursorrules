@@ -1,0 +1,58 @@
+# KanjiSense Workspace Context & Rules
+
+This project is KanjiSense, an adaptive Japanese vocabulary tutor web application built with the Antigravity agentic framework.
+
+## Tech Stack & Architecture
+- **Framework:** Antigravity (Mock agent loop defined in `kanjisense/antigravity.py`).
+- **AI Agent & LLM:** Gemini 2.5 Flash (`google-generativeai`) configured in `kanjisense/agent.py`.
+- **Database:** SQLite database `kanjisense.db` managed via SQLAlchemy in `kanjisense/db.py`.
+- **Backend:** Flask REST API in `kanjisense/app.py` running on port 5000.
+- **Frontend:** Vanilla JS (`review.js`), CSS (`styles.css`), and HTML (`index.html`) in `kanjisense/frontend/`.
+
+## Directory Structure
+```
+kanjisense/
+├── agent.py          # Antigravity agent + tool definitions
+├── app.py            # Flask REST API
+├── db.py             # SQLAlchemy models + SQLite setup
+├── antigravity.py    # Lightweight agentic framework implementation
+├── kanjisense.db     # SQLite database file
+├── requirements.txt  # Python requirements
+└── frontend/         # Web application UI files
+    ├── index.html
+    ├── review.js
+    └── styles.css
+```
+
+## Database Schema (db.py)
+1. **`Flashcard`**: `id`, `user_id` (owner), `kanji`, `reading` (hiragana/katakana), `meaning`, `example_sentence`, `image_url` (Pollinations AI), `chapter`, `ease_factor`, `interval`, `repetitions`, `next_review`.
+2. **`ReviewLog`**: `id`, `user_id`, `card_id`, `correct` (bool), `quality` (0-5 SM-2 score), `reviewed_at`.
+3. **`User`**: `id`, `google_sub`, `email`, `name`, `due_limit` (`low`/`medium`/`high`). **`Session`**: `token`, `user_id` (bearer-token auth).
+4. **`WateringLog`**: `id`, `user_id`, `watered_on` (one row per garden-watering day; drives tree growth).
+
+## Core Agent Tools (agent.py)
+- `ocr_scan_image(image_base64)`: OCR-scans textbook page using Gemini Vision.
+- `create_flashcard(...)`: Inserts flashcard into DB (owned by `user_id`).
+- `schedule_review(card_id, quality, user_id)`: SM-2 spaced repetition scheduler, records to `ReviewLog`.
+- `get_chapter_cards(chapter, user_id)`: Retrieves chapter's cards sorted by next review date.
+- `get_due_cards(user_id)`: Previously-reviewed cards due today or earlier, capped at the user's `due_limit`.
+- `get_weak_cards(user_id)`: Lowest-accuracy cards (>=2 reviews, <60%), across chapters.
+
+## Flask API Endpoints (app.py)
+All data routes require `Authorization: Bearer` and are scoped to the user.
+- `POST /scan`: Scans image and populates new flashcards for a chapter.
+- `GET /chapters`: Retrieves list of chapters with counts, remembered count, and scores.
+- `GET /garden` + `POST /garden/water`: "My Garden" gamified progress (tree from watering days, sun = streak, flowers = mastery, wilts when neglected).
+- `POST /settings`: Update the user's display `name` and `due_limit` (Settings page, sidebar item below Scan & Create).
+- `GET /review/session`: Starts an adaptive review session for a chapter.
+- `GET /review/due`: Session of all cards due today across chapters.
+- `GET /review/weak`: Session of the user's weakest cards across chapters.
+- `POST /review/submit`: Submits quality score for card review.
+- `GET /chapter/<name>`: Retrieves all cards for a chapter.
+- `DELETE /chapter/<name>`: Deletes a chapter and its logs.
+- Auth: `GET /auth/config`, `POST /auth/google`, `GET /auth/me`, `POST /auth/logout`.
+
+## Rules for Agents
+1. **Minimize token usage:** Do NOT read whole files unless you are making edits. Refer to this context file first.
+2. **Framework Compliance:** Keep using the `antigravity` framework. Do not replace it with standard LLM chains unless requested.
+3. **Database Integrity:** Always commit and close SQLAlchemy sessions in backend routes or tool functions to prevent session leaks.
