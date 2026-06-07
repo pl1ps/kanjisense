@@ -8,7 +8,9 @@ services:
     rootDir: kanjisense          # app.py, requirements.txt live here
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1
+    # --timeout 120: dense image OCR via Gemini can take well over gunicorn's
+    # 30s default, which would otherwise kill the worker mid-request.
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     envVars:
       - key: GOOGLE_API_KEY
         sync: false              # set in Render dashboard (kept out of the repo)

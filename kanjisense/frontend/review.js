@@ -941,8 +941,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Response received:', response.status);
                 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Server error');
+                    // The body may be an HTML error page (e.g. a gateway timeout),
+                    // not JSON — parse defensively so we show a useful message.
+                    let msg = `Server error (${response.status})`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData && errorData.error) msg = errorData.error;
+                    } catch (_) { /* non-JSON body */ }
+                    if (response.status === 502 || response.status === 504) {
+                        msg = 'The image took too long to process. Try a clearer or less dense photo, or crop it into smaller sections.';
+                    }
+                    throw new Error(msg);
                 }
                 
                 const result = await response.json();
