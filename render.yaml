@@ -14,5 +14,7 @@ services:
         sync: false              # set in Render dashboard (kept out of the repo)
       - key: GOOGLE_CLIENT_ID
         sync: false
+      - key: DATABASE_URL
+        sync: false              # paste your Neon Postgres connection string here
       - key: PYTHON_VERSION
         value: "3.12"

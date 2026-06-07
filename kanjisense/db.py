@@ -58,7 +58,19 @@ class WateringLog(Base):
     user_id    = Column(Integer, index=True)
     watered_on = Column(Date, default=date.today)
 
-engine = create_engine(f"sqlite:///{os.path.join(BASE_DIR, 'kanjisense.db')}")
+# Use Postgres in production (Render/Neon set DATABASE_URL); fall back to a local
+# SQLite file for development when DATABASE_URL is not set.
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    # Some providers hand out the legacy "postgres://" scheme that SQLAlchemy
+    # no longer recognizes — normalize it to "postgresql://".
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    # pool_pre_ping avoids "server closed the connection" errors against
+    # serverless Postgres that drops idle connections (e.g. Neon).
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+else:
+    engine = create_engine(f"sqlite:///{os.path.join(BASE_DIR, 'kanjisense.db')}")
 
 
 def run_migrations():
