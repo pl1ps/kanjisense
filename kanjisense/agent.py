@@ -3,6 +3,8 @@ import json
 from datetime import date, timedelta
 from antigravity import Agent, tool
 import google.generativeai as genai
+from google.api_core import retry as garetry
+from google.api_core import exceptions as gexceptions
 from db import SessionLocal, Flashcard, ReviewLog, User, DUE_LIMITS, DEFAULT_DUE_LIMIT
 from dotenv import load_dotenv
 
@@ -15,6 +17,13 @@ if api_key:
     genai.configure(api_key=api_key)
 
 model_flash = genai.GenerativeModel('gemini-2.5-flash')
+
+# The SDK auto-retries transient errors (incl. 429/503/500) with backoff, and
+# EVERY retry counts against the free tier's 5-requests/minute quota — so a
+# single scan can silently snowball into 5-6 billed requests and trip the limit
+# by itself. Force exactly ONE API call per scan: never retry. (deadline still
+# bounds how long that single call may run.)
+_NO_RETRY = garetry.Retry(predicate=lambda exc: False, deadline=120)
 
 @tool(description="Extract Japanese vocabulary from an uploaded image or PDF page using Gemini Vision (Free).")
 def ocr_scan_image(image_base64: str) -> list[dict]:
@@ -31,11 +40,19 @@ def ocr_scan_image(image_base64: str) -> list[dict]:
         "example_sentence (Japanese str). Only return the JSON array."
     )
     
-    response = model_flash.generate_content([
-        prompt,
-        {"mime_type": "image/jpeg", "data": image_data}
-    ])
-    
+    try:
+        response = model_flash.generate_content(
+            [prompt, {"mime_type": "image/jpeg", "data": image_data}],
+            request_options={"retry": _NO_RETRY},
+        )
+    except gexceptions.ResourceExhausted:
+        # Free tier = 5 requests/minute. Surface a friendly, actionable message
+        # instead of the raw quota dump.
+        raise RuntimeError(
+            "Gemini's free tier allows only 5 scans per minute. "
+            "Please wait about a minute and try again."
+        )
+
     # Clean up the response (Gemini sometimes adds markdown code blocks)
     text = response.text.strip()
     if text.startswith("```json"):
