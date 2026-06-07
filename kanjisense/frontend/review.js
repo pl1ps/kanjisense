@@ -897,6 +897,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Downscale a photo before upload: caps the longest edge (only shrinks, never
+    // upscales) and re-encodes as JPEG. Gemini downsamples internally anyway, so
+    // this cuts upload size + server memory with no real OCR loss. Falls back to
+    // the raw file if the canvas pipeline isn't available.
+    async function fileToScaledBase64(file, maxDim = 2000, quality = 0.85) {
+        try {
+            let bitmap;
+            try {
+                bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            } catch (_) {
+                bitmap = await createImageBitmap(file); // older browsers ignore the option
+            }
+            const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+            const w = Math.round(bitmap.width * scale);
+            const h = Math.round(bitmap.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+            if (bitmap.close) bitmap.close();
+            return canvas.toDataURL('image/jpeg', quality).split(',')[1];
+        } catch (err) {
+            console.warn('Image downscale failed, sending original:', err);
+            return await new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(r.result.split(',')[1]);
+                r.onerror = reject;
+                r.readAsDataURL(file);
+            });
+        }
+    }
+
     let isScanInProgress = false;
 
     btnScan.addEventListener('click', async () => {
@@ -925,67 +957,56 @@ document.addEventListener('DOMContentLoaded', () => {
         scanStatus.style.color = 'var(--accent)';
         
         console.log('Starting OCR process for chapter:', chapter);
-        
-        const reader = new FileReader();
-        reader.onload = async () => {
-            try {
-                const base64 = reader.result.split(',')[1];
-                console.log('File read successful, sending POST request...');
-                
-                const response = await authedFetch(`${BACKEND_URL}/scan`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image_base64: base64, chapter })
-                });
-                
-                console.log('Response received:', response.status);
-                
-                if (!response.ok) {
-                    // The body may be an HTML error page (e.g. a gateway timeout),
-                    // not JSON — parse defensively so we show a useful message.
-                    let msg = `Server error (${response.status})`;
-                    try {
-                        const errorData = await response.json();
-                        if (errorData && errorData.error) msg = errorData.error;
-                    } catch (_) { /* non-JSON body */ }
-                    if (response.status === 502 || response.status === 504) {
-                        msg = 'The image took too long to process. Try a clearer or less dense photo, or crop it into smaller sections.';
-                    }
-                    throw new Error(msg);
+
+        try {
+            const base64 = await fileToScaledBase64(file);
+            console.log('Image prepared, sending POST request...');
+
+            const response = await authedFetch(`${BACKEND_URL}/scan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_base64: base64, chapter })
+            });
+
+            console.log('Response received:', response.status);
+
+            if (!response.ok) {
+                // The body may be an HTML error page (e.g. a gateway timeout),
+                // not JSON — parse defensively so we show a useful message.
+                let msg = `Server error (${response.status})`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData && errorData.error) msg = errorData.error;
+                } catch (_) { /* non-JSON body */ }
+                if (response.status === 502 || response.status === 504) {
+                    msg = 'The image took too long to process. Try a clearer or less dense photo, or crop it into smaller sections.';
                 }
-                
-                const result = await response.json();
-                console.log('Scan result:', result);
-                
-                scanStatus.textContent = '✅ Scan complete! New cards created.';
-                scanStatus.style.color = 'var(--success)';
-                
-                // Clear inputs and preview
-                fileInput.value = '';
-                chapterInput.value = '';
-                imagePreview.src = '';
-                imagePreview.classList.add('hidden');
-                dropZoneContent.classList.remove('hidden');
-                
-                setTimeout(() => switchView('review'), 2000);
-            } catch (err) {
-                console.error('Scan Error:', err);
-                scanStatus.textContent = `❌ Error: ${err.message || 'Check your API key or connection.'}`;
-                scanStatus.style.color = 'var(--danger)';
-            } finally {
-                btnScan.disabled = false;
-                btnScan.innerHTML = originalBtnText;
-                isScanInProgress = false;
+                throw new Error(msg);
             }
-        };
-        reader.onerror = () => {
-            scanStatus.textContent = '❌ Failed to read the file.';
+
+            const result = await response.json();
+            console.log('Scan result:', result);
+
+            scanStatus.textContent = '✅ Scan complete! New cards created.';
+            scanStatus.style.color = 'var(--success)';
+
+            // Clear inputs and preview
+            fileInput.value = '';
+            chapterInput.value = '';
+            imagePreview.src = '';
+            imagePreview.classList.add('hidden');
+            dropZoneContent.classList.remove('hidden');
+
+            setTimeout(() => switchView('review'), 2000);
+        } catch (err) {
+            console.error('Scan Error:', err);
+            scanStatus.textContent = `❌ Error: ${err.message || 'Check your API key or connection.'}`;
             scanStatus.style.color = 'var(--danger)';
+        } finally {
             btnScan.disabled = false;
             btnScan.innerHTML = originalBtnText;
             isScanInProgress = false;
-        };
-        reader.readAsDataURL(file);
+        }
     });
 
     // Theme Toggle Logic
