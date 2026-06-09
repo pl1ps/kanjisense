@@ -18,12 +18,26 @@ if api_key:
 
 model_flash = genai.GenerativeModel('gemini-2.5-flash')
 
-# The SDK auto-retries transient errors (incl. 429/503/500) with backoff, and
-# EVERY retry counts against the free tier's 5-requests/minute quota — so a
-# single scan can silently snowball into 5-6 billed requests and trip the limit
-# by itself. Force exactly ONE API call per scan: never retry. (deadline still
-# bounds how long that single call may run.)
-_NO_RETRY = garetry.Retry(predicate=lambda exc: False, deadline=120)
+# Two kinds of error need OPPOSITE handling:
+#   * 503 ServiceUnavailable / 500 / DeadlineExceeded = Google's servers are
+#     momentarily overloaded. These are transient and usually clear on the next
+#     attempt, so retrying (with backoff) is exactly the right remedy.
+#   * 429 ResourceExhausted = WE hit the free tier's 5-requests/minute quota.
+#     Retrying that only burns more of the allowance, so we must NOT retry it.
+# So: retry the transient server errors, never the quota error.
+def _retry_if_transient_not_quota(exc):
+    return isinstance(exc, (
+        gexceptions.ServiceUnavailable,   # 503 "model experiencing high demand"
+        gexceptions.InternalServerError,  # 500
+        gexceptions.DeadlineExceeded,     # 504 / gRPC deadline
+    ))
+
+# deadline=90 keeps the whole retry loop comfortably under gunicorn's 120s worker
+# timeout, so the worker is never killed mid-retry.
+_OCR_RETRY = garetry.Retry(
+    predicate=_retry_if_transient_not_quota,
+    initial=2.0, maximum=20.0, multiplier=2.0, deadline=90.0,
+)
 
 @tool(description="Extract Japanese vocabulary from an uploaded image or PDF page using Gemini Vision (Free).")
 def ocr_scan_image(image_base64: str) -> list[dict]:
@@ -43,14 +57,20 @@ def ocr_scan_image(image_base64: str) -> list[dict]:
     try:
         response = model_flash.generate_content(
             [prompt, {"mime_type": "image/jpeg", "data": image_data}],
-            request_options={"retry": _NO_RETRY},
+            request_options={"retry": _OCR_RETRY},
         )
     except gexceptions.ResourceExhausted:
-        # Free tier = 5 requests/minute. Surface a friendly, actionable message
-        # instead of the raw quota dump.
+        # 429: free tier = 5 requests/minute. Surface a friendly, actionable
+        # message instead of the raw quota dump.
         raise RuntimeError(
             "Gemini's free tier allows only 5 scans per minute. "
             "Please wait about a minute and try again."
+        )
+    except gexceptions.ServiceUnavailable:
+        # 503: Google's servers are overloaded even after our retries gave up.
+        raise RuntimeError(
+            "Gemini is experiencing high demand right now. "
+            "Please wait a moment and try scanning again."
         )
 
     # Clean up the response (Gemini sometimes adds markdown code blocks)
