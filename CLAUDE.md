@@ -4,19 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-KanjiSense is an adaptive Japanese vocabulary flashcard tutor. It OCRs textbook pages into flashcards, generates illustrations, and schedules reviews with the SM-2 spaced-repetition algorithm. All code lives under `kanjisense/`.
+KanjiSense is an adaptive Japanese vocabulary flashcard tutor. It OCRs textbook pages into flashcards, generates illustrations, and schedules reviews with the SM-2 spaced-repetition algorithm. All code lives at the repository root (the project was flattened from an earlier `kanjisense/` subfolder layout).
 
 ## Commands
 
 ```bash
-# from the kanjisense/ directory
+# from the repository root
 pip install -r requirements.txt
 python app.py            # serves API + frontend on http://127.0.0.1:5000 (debug=True)
 ```
 
 There are no tests, linters, or build steps. The SQLite DB (`kanjisense.db`) is created automatically on first import of `db.py`.
 
-`kanjisense/.env` (loaded via python-dotenv) needs two values: `GOOGLE_API_KEY` (Gemini) and `GOOGLE_CLIENT_ID` (a Google OAuth 2.0 "Web application" client id for Sign-in with Google). For the client id, add `http://127.0.0.1:5000` and `http://127.0.0.1:5500` as Authorized JavaScript origins in Google Cloud Console. Without a real `GOOGLE_CLIENT_ID` the login screen shows a "not configured" message and the app is unusable (login is required).
+`.env` (at the repo root, loaded via python-dotenv) needs two values: `GOOGLE_API_KEY` (Gemini) and `GOOGLE_CLIENT_ID` (a Google OAuth 2.0 "Web application" client id for Sign-in with Google). For the client id, add `http://127.0.0.1:5000` and `http://127.0.0.1:5500` as Authorized JavaScript origins in Google Cloud Console. Without a real `GOOGLE_CLIENT_ID` the login screen shows a "not configured" message and the app is unusable (login is required).
 
 ## Source-of-truth caveats
 
@@ -58,4 +58,4 @@ Vanilla JS/CSS/HTML served by Flask. `review.js` resolves the backend URL dynami
 - `/review/due` serves **only previously-reviewed cards** that are due (`next_review <= today` AND ≥1 `ReviewLog`), capped at the user's `due_limit` — brand-new cards are learned via the chapter Dashboard, not the daily queue. `/review/weak` (lowest-accuracy cards, `total>=2` reviews and `<60%`) also goes through `run_agent`; both return the same `{cards, weak_count}` shape as `/review/session`, so the frontend reuses the flashcard reviewer. `POST /settings` updates the user's `name` and `due_limit`. Sidebar items: Dashboard (chapters), Review Due Today, My Garden (`#section-stats`), Weak Cards, and Settings (`#section-settings`, below Scan & Create).
 - **My Garden** (`GET /garden`, `POST /garden/water`) is the gamified progress view (direct DB queries via `_compute_garden`, bypassing `run_agent`). Tree stage comes from cumulative *watering days* (`WateringLog`, never shrinks); the sun is the study streak (consecutive `ReviewLog` days, may reset); flowers = mastery ratio capped by stage. `POST /garden/water` adds at most one `WateringLog` per day and only when `water_available` (reviewed today, not already watered, and either today's due queue is cleared or the daily review goal `due_limit` is met) — re-checked server-side. The tree wilts (render-only) after `GARDEN_WILT_AFTER` unwatered days but never loses a stage. Stage thresholds/flower caps live in `GARDEN_STAGES`/`GARDEN_FLOWER_CAPS` in `app.py` and are mirrored in `STAGE_THRESHOLDS` in `review.js`.
 - Mutating routes handle `OPTIONS` for CORS preflight; `require_auth` also short-circuits `OPTIONS` so preflight never 401s.
-- Static assets: the SPA is served from `frontend/`, but background images + the logo/favicon live in the sibling `kanjisense/images/` folder, served by the dedicated `GET /images/<filename>` route. CSS/HTML reference them with the relative `../images/...` path so they resolve under both Flask (:5000) and VS Code Live Server (:5500).
+- Static assets: the SPA is served from `frontend/`, but background images + the logo/favicon live in the sibling `images/` folder, served by the dedicated `GET /images/<filename>` route. CSS/HTML reference them with the relative `../images/...` path so they resolve under both Flask (:5000) and VS Code Live Server (:5500).

@@ -3,15 +3,15 @@
 This project is KanjiSense, an adaptive Japanese vocabulary tutor web application built with the Antigravity agentic framework.
 
 ## Tech Stack & Architecture
-- **Framework:** Antigravity (Mock agent loop defined in `kanjisense/antigravity.py`).
-- **AI Agent & LLM:** Gemini 2.5 Flash (`google-generativeai`) configured in `kanjisense/agent.py`.
-- **Database:** SQLite database `kanjisense.db` managed via SQLAlchemy in `kanjisense/db.py`.
-- **Backend:** Flask REST API in `kanjisense/app.py` running on port 5000.
-- **Frontend:** Vanilla JS (`review.js`), CSS (`styles.css`), and HTML (`index.html`) in `kanjisense/frontend/`.
+- **Framework:** Antigravity (Mock agent loop defined in `antigravity.py`).
+- **AI Agent & LLM:** Gemini 2.5 Flash (`google-generativeai`) configured in `agent.py`.
+- **Database:** SQLite database `kanjisense.db` managed via SQLAlchemy in `db.py`.
+- **Backend:** Flask REST API in `app.py` running on port 5000.
+- **Frontend:** Vanilla JS (`review.js`), CSS (`styles.css`), and HTML (`index.html`) in `frontend/`.
 
 ## Directory Structure
 ```
-kanjisense/
+<repo root>/
 ├── agent.py          # Antigravity agent + tool definitions
 ├── app.py            # Flask REST API
 ├── db.py             # SQLAlchemy models + SQLite setup

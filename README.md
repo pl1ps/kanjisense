@@ -15,7 +15,6 @@ Flask · SQLAlchemy + SQLite · Google Gemini (`google-generativeai`) · Google 
 
 ## Run locally
 ```bash
-cd kanjisense
 pip install -r requirements.txt
 cp .env.example .env        # then fill in the two values below
 python app.py               # http://127.0.0.1:5000

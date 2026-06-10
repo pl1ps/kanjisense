@@ -4,8 +4,7 @@
 services:
   - type: web
     name: kanjisense
-    runtime: python
-    rootDir: kanjisense          # app.py, requirements.txt live here
+    runtime: python              # app.py, requirements.txt now live at the repo root
     plan: free
     buildCommand: pip install -r requirements.txt
     # --timeout 120: dense image OCR via Gemini can take well over gunicorn's
