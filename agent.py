@@ -39,24 +39,47 @@ _OCR_RETRY = garetry.Retry(
     initial=2.0, maximum=20.0, multiplier=2.0, deadline=90.0,
 )
 
+# Constrained-decoding schema for the OCR result. Passing this as Gemini's
+# response_schema forces the output to be a valid JSON array of objects with
+# exactly these (required) string fields, so we never have to strip markdown
+# fences or guard against a missing key downstream in create_flashcard.
+_VOCAB_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "kanji": {"type": "string"},
+            "reading": {"type": "string"},
+            "meaning": {"type": "string"},
+            "example_sentence": {"type": "string"},
+        },
+        "required": ["kanji", "reading", "meaning", "example_sentence"],
+    },
+}
+
 @tool(description="Extract Japanese vocabulary from an uploaded image or PDF page using Gemini Vision (Free).")
 def ocr_scan_image(image_base64: str) -> list[dict]:
     # In Gemini, we pass the base64 data directly or as bytes
     import base64
     image_data = base64.b64decode(image_base64)
     
+    # The schema (response_schema below) enforces the output *shape*; this prompt
+    # only needs to describe the *content* of each field.
     prompt = (
-        "Extract all Japanese vocabulary from this image. "
-        "Return a JSON array where each item has: "
-        "kanji (str - use kanji if the word contains kanji, otherwise use hiragana/katakana), "
-        "reading (hiragana str), "
-        "meaning (English str), "
-        "example_sentence (Japanese str). Only return the JSON array."
+        "Extract all Japanese vocabulary from this image. For each word provide: "
+        "kanji (use kanji if the word contains kanji, otherwise hiragana/katakana), "
+        "reading (in hiragana), "
+        "meaning (in English), "
+        "example_sentence (in Japanese)."
     )
-    
+
     try:
         response = model_flash.generate_content(
             [prompt, {"mime_type": "image/jpeg", "data": image_data}],
+            generation_config={
+                "response_mime_type": "application/json",
+                "response_schema": _VOCAB_SCHEMA,
+            },
             request_options={"retry": _OCR_RETRY},
         )
     except gexceptions.ResourceExhausted:
@@ -73,14 +96,9 @@ def ocr_scan_image(image_base64: str) -> list[dict]:
             "Please wait a moment and try scanning again."
         )
 
-    # Clean up the response (Gemini sometimes adds markdown code blocks)
-    text = response.text.strip()
-    if text.startswith("```json"):
-        text = text[7:-3]
-    elif text.startswith("```"):
-        text = text[3:-3]
-    
-    return json.loads(text)
+    # response_mime_type=application/json guarantees response.text is a clean
+    # JSON array matching _VOCAB_SCHEMA, so no markdown-fence stripping is needed.
+    return json.loads(response.text)
 
 @tool(description="Save a new flashcard to the database, linked to a chapter and owner.")
 def create_flashcard(
