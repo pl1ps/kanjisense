@@ -142,7 +142,9 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedChapter: null,
         cards: [],
         currentIndex: 0,
-        isFlipped: false
+        isFlipped: false,
+        forgotCount: 0,
+        rememberCount: 0
     };
 
     // DOM Elements
@@ -164,8 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const flashcard = document.getElementById('flashcard');
     const controls = document.getElementById('controls');
-    const dueCount = document.getElementById('due-count');
-    const weakCountElement = document.getElementById('weak-count');
+    const forgotCountEl = document.getElementById('forgot-count');
+    const rememberCountEl = document.getElementById('remember-count');
+    const cardsLeftEl = document.getElementById('cards-left');
     
     const displayKanji = document.getElementById('display-kanji');
     const displayReading = document.getElementById('display-reading');
@@ -181,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navSettings.addEventListener('click', () => switchView('settings'));
     btnBackToDecks.addEventListener('click', () => switchView('review'));
     document.getElementById('nav-logout').addEventListener('click', handleLogout);
+    document.getElementById('nav-logout-mobile').addEventListener('click', handleLogout);
     document.getElementById('water-can-btn').addEventListener('click', waterGarden);
 
     const navItems = [navReview, navDue, navStats, navWeak, navScan, navSettings];
@@ -231,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentX = 0;
     let currentY = 0;
     let isDragging = false;
+    let lastTouchTime = 0;     // suppresses the synthesized mouse events a tap fires
     const dragThreshold = 120; // px required to confirm swipe
     const clickThreshold = 8;  // px max to differentiate click vs drag
 
@@ -291,6 +296,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function startDrag(e) {
         if (!state.cards[state.currentIndex]) return;
 
+        // A tap fires touch* events and then ~300ms later synthesizes
+        // mouse* events on the same element. Ignore that ghost mousedown so
+        // the card isn't flipped twice (which cancels out and looks like a no-op).
+        if (e.type === 'mousedown') {
+            if (Date.now() - lastTouchTime < 700) return;
+        } else {
+            lastTouchTime = Date.now();
+        }
+
         isDragging = true;
         if (state.isFlipped) {
             flashcard.classList.add('dragging');
@@ -345,6 +359,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isDragging) return;
         isDragging = false;
 
+        // Mark when the finger lifts so the ghost mousedown (fired right after)
+        // is measured from here and ignored by startDrag.
+        if (e && e.type === 'touchend') lastTouchTime = Date.now();
+
         document.removeEventListener('mousemove', dragMove);
         document.removeEventListener('mouseup', endDrag);
         document.removeEventListener('touchmove', dragMove);
@@ -393,7 +411,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function swipeCard(direction, finalY = 0) {
         flashcard.classList.remove('dragging', 'snapping-back');
         const quality = direction === 'left' ? 1 : 5;
-        
+
+        if (direction === 'left') {
+            state.forgotCount++;
+        } else {
+            state.rememberCount++;
+        }
+
         if (direction === 'left') {
             flashcard.classList.add('swiping-left');
             forgotIndicator.style.opacity = 1;
@@ -579,16 +603,25 @@ document.addEventListener('DOMContentLoaded', () => {
             
             state.cards = cards;
             state.currentIndex = 0;
-            updateStats(data.weak_count || 0);
+            resetSessionStats();
             showNextCard();
         } catch (err) {
             console.error('Failed to fetch session:', err);
         }
     }
 
-    function updateStats(weakCount) {
-        dueCount.textContent = state.cards.length;
-        weakCountElement.textContent = weakCount;
+    // Per-session tally shown in the header: how many cards you marked
+    // forgot/remember this session, and how many are still left to review.
+    function resetSessionStats() {
+        state.forgotCount = 0;
+        state.rememberCount = 0;
+        renderSessionStats();
+    }
+
+    function renderSessionStats() {
+        forgotCountEl.textContent = state.forgotCount;
+        rememberCountEl.textContent = state.rememberCount;
+        cardsLeftEl.textContent = Math.max(0, state.cards.length - state.currentIndex);
     }
 
     // Due Today / Weak Cards sessions reuse the flashcard reviewer but skip
@@ -611,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             state.cards = cards;
             state.currentIndex = 0;
-            updateStats(data.weak_count || 0);
+            resetSessionStats();
             showNextCard();
         } catch (err) {
             console.error('Failed to start session:', err);
@@ -781,6 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showNextCard() {
+        renderSessionStats();
         if (state.currentIndex >= state.cards.length) {
             displayKanji.textContent = '🎉';
             displayKanji.style.setProperty('--char-count', 1);
@@ -1009,47 +1043,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Theme Toggle Logic
-    const themeCheckbox = document.getElementById('theme-toggle-checkbox');
-    const themeText = document.getElementById('theme-text');
-    const sunIcon = document.querySelector('.theme-toggle-item .sun-icon');
-    const moonIcon = document.querySelector('.theme-toggle-item .moon-icon');
+    // Theme Toggle Logic — there are two toggles (sidebar on desktop, Settings
+    // on mobile); applyTheme keeps every copy in sync from one source of truth.
+    const themeCheckboxes = document.querySelectorAll('.theme-toggle-checkbox');
+    const themeTexts = document.querySelectorAll('.theme-text');
+    const sunIcons = document.querySelectorAll('.theme-toggle-item .sun-icon');
+    const moonIcons = document.querySelectorAll('.theme-toggle-item .moon-icon');
 
-    if (themeCheckbox && themeText && sunIcon && moonIcon) {
-        themeCheckbox.addEventListener('change', () => {
-            if (themeCheckbox.checked) {
-                // Dark Mode active
-                document.body.classList.remove('light-theme');
-                themeText.textContent = 'Dark Mode';
-                sunIcon.classList.add('hidden');
-                moonIcon.classList.remove('hidden');
-                localStorage.setItem('theme', 'dark');
-            } else {
-                // Light Mode active
-                document.body.classList.add('light-theme');
-                themeText.textContent = 'Light Mode';
-                sunIcon.classList.remove('hidden');
-                moonIcon.classList.add('hidden');
-                localStorage.setItem('theme', 'light');
-            }
-        });
-
-        // Load saved theme preference
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'light') {
-            themeCheckbox.checked = false;
-            document.body.classList.add('light-theme');
-            themeText.textContent = 'Light Mode';
-            sunIcon.classList.remove('hidden');
-            moonIcon.classList.add('hidden');
-        } else {
-            themeCheckbox.checked = true;
-            document.body.classList.remove('light-theme');
-            themeText.textContent = 'Dark Mode';
-            sunIcon.classList.add('hidden');
-            moonIcon.classList.remove('hidden');
-        }
+    function applyTheme(isDark) {
+        document.body.classList.toggle('light-theme', !isDark);
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        themeCheckboxes.forEach(cb => { cb.checked = isDark; });
+        themeTexts.forEach(t => { t.textContent = isDark ? 'Dark Mode' : 'Light Mode'; });
+        sunIcons.forEach(s => s.classList.toggle('hidden', isDark));
+        moonIcons.forEach(m => m.classList.toggle('hidden', !isDark));
     }
+
+    themeCheckboxes.forEach(cb => {
+        cb.addEventListener('change', () => applyTheme(cb.checked));
+    });
+
+    // Load saved theme preference (defaults to dark).
+    applyTheme(localStorage.getItem('theme') !== 'light');
 
     // Initial Load — gate the app behind Google sign-in.
     initAuth();
