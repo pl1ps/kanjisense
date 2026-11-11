@@ -180,6 +180,14 @@ def auth_logout():
 
 
 # ----------------------------------------------------------------------------
+# Health check (for keep-alive pingers / Render health check)
+# ----------------------------------------------------------------------------
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"}), 200
+
+
+# ----------------------------------------------------------------------------
 # Static frontend
 # ----------------------------------------------------------------------------
 IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'images')
