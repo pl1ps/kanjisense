@@ -68,7 +68,15 @@ if DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     # pool_pre_ping avoids "server closed the connection" errors against
     # serverless Postgres that drops idle connections (e.g. Neon).
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    try:
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    except ModuleNotFoundError:
+        # Fallback to psycopg2 driver if psycopg (v3) is not available
+        if DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+"):
+            alt_url = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+            engine = create_engine(alt_url, pool_pre_ping=True)
+        else:
+            raise
 else:
     engine = create_engine(f"sqlite:///{os.path.join(BASE_DIR, 'kanjisense.db')}")
 
